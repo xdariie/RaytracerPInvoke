@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 using System.Drawing.Imaging;
 
 class Program
@@ -8,12 +9,35 @@ class Program
         int width = 800;
         int height = 450;
 
-        byte[] buffer = new byte[width * height * 3];
-
-        //define scene in C#
-        NativeMethods.rt_clear_scene();
-
         Random rand = new Random();
+
+        //create scene
+        Scene scene = new Scene();
+
+        //create camera
+        Camera cam = new Camera
+        {
+            LookFromX = 13,
+            LookFromY = 2,
+            LookFromZ = 3,
+            LookAtX = 0,
+            LookAtY = 0,
+            LookAtZ = 0,
+            VupX = 0,
+            VupY = 1,
+            VupZ = 0,
+            VFoV = 20,
+            SamplesPerPixel = 10,
+            MaxDepth = 20,
+            DefocusAngle = 0.6,
+            FocusDist = 10
+        };
+
+        cam.Apply();
+
+
+        //ground sphere
+        scene.Add(new Sphere(0, -1000, 0, 1000, new Lambertian(0.5, 0.5, 0.5)));
 
         for (int a = -11; a < 11; a++)
         {
@@ -21,77 +45,70 @@ class Program
             {
                 double chooseMat = rand.NextDouble();
 
-                double x = a + 0.9 * rand.NextDouble();
-                double y = 0.2;
-                double z = b + 0.9 * rand.NextDouble();
+                double centerX = a + 0.9 * rand.NextDouble();
+                double centerY = 0.2;
+                double centerZ = b + 0.9 * rand.NextDouble();
 
-                double dx = x - 4;
-                double dz = z;
+                //svoiding overlapping big sphere
+                double dx = centerX - 4;
+                double dz = centerZ;
+                double distance = Math.Sqrt(dx * dx + dz * dz);
 
-                if (Math.Sqrt(dx * dx + dz * dz) > 0.9)
+                if (distance > 0.9)
                 {
                     if (chooseMat < 0.8)
                     {
                         //diffuse
-                        NativeMethods.rt_add_sphere(x, y, z, 0.2, 0, rand.NextDouble() * rand.NextDouble(), rand.NextDouble() * rand.NextDouble(), rand.NextDouble() * rand.NextDouble(), 0);
+                        scene.Add(new Sphere(centerX, centerY, centerZ, 0.2,
+                            new Lambertian(rand.NextDouble(),rand.NextDouble(),rand.NextDouble())));
                     }
                     else if (chooseMat < 0.95)
                     {
                         //metal
-                        NativeMethods.rt_add_sphere(x, y, z, 0.2, 1, 0.5 + rand.NextDouble() * 0.5, 0.5 + rand.NextDouble() * 0.5, 0.5 + rand.NextDouble() * 0.5, rand.NextDouble() * 0.5);
+                        scene.Add(new Sphere(centerX, centerY, centerZ, 0.2,
+                            new Metal(rand.NextDouble() * 0.5 + 0.5,rand.NextDouble() * 0.5 + 0.5,rand.NextDouble() * 0.5 + 0.5,rand.NextDouble() * 0.5)));
                     }
                     else
                     {
                         //glass
-                        NativeMethods.rt_add_sphere(x, y, z, 0.2, 2, 1, 1, 1, 1.5);
+                        scene.Add(new Sphere(centerX, centerY, centerZ, 0.2, new Dielectric(1.5)));
                     }
                 }
             }
         }
 
-        //ground sphere
-        NativeMethods.rt_add_sphere(0, -1000, 0, 1000, 0, 0.5, 0.5, 0.5, 0);
-
         //center sphere
-        NativeMethods.rt_add_sphere(0, 1, 0, 1, 2, 1, 1, 1, 1.5);
+        scene.Add(new Sphere(0, 1, 0, 1, new Dielectric(1.5)));
 
         //left sphere
-        NativeMethods.rt_add_sphere(-4, 1, 0, 1, 0, 0.4, 0.2, 0.1, 0);
+        scene.Add(new Sphere(-4, 1, 0, 1, new Lambertian(0.4, 0.2, 0.1)));
 
         //right sphere
-        NativeMethods.rt_add_sphere(4, 1, 0, 1, 1, 0.7, 0.6, 0.5, 0);
+        scene.Add(new Sphere(4, 1, 0, 1, new Metal(0.7, 0.6, 0.5, 0.0)));
 
-        NativeMethods.ProgressCallback callback = (percent) =>
-        {
-            Console.WriteLine($"Progress: {percent}%");
-        };
+        //create renderer
+        Raytracer renderer = new Raytracer(width, height);
 
-        Console.WriteLine("Rendering...");
-        NativeMethods.rt_render(buffer, width, height, callback);
+        //render scene
+        byte[] image = renderer.Render(scene, percent => Console.WriteLine($"Progress: {percent}%"));
 
-        SaveImage(buffer, width, height);
-        Console.WriteLine("Done!");
-    }
-
-    static void SaveImage(byte[] buffer, int width, int height)
-    {
-        //store in bitmap instead of writing to a PPM file using std::cout
-        using Bitmap bmp = new Bitmap(width, height, PixelFormat.Format24bppRgb);
+        //convert to Bitmap
+        using Bitmap bmp = new Bitmap(width, height);
 
         int index = 0;
-
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
             {
-                byte r = buffer[index++];
-                byte g = buffer[index++];
-                byte b = buffer[index++];
+                int r = image[index++];
+                int g = image[index++];
+                int b = image[index++];
 
                 bmp.SetPixel(x, y, Color.FromArgb(r, g, b));
             }
         }
-        //save it as a PNG image instead of a PPM file
+
         bmp.Save("output.png", ImageFormat.Png);
+        Console.WriteLine("Rendering complete. Image saved as output.png");
     }
 }

@@ -10,11 +10,11 @@ static hittable_list world;
 static camera cam;
 static bool cam_set = false;
 
-void rt_clear_scene() {
+API void rt_clear_scene() {
 	world.clear();
 }
 
-void rt_add_sphere(double x, double y, double z, double radius, int material_type, double r, double g, double b, double param) {
+API void rt_add_sphere(double x, double y, double z, double radius, int material_type, double r, double g, double b, double param) {
 	point3 center(x, y, z);
 	shared_ptr<material> mat;
 	if (material_type == 0) {
@@ -29,7 +29,7 @@ void rt_add_sphere(double x, double y, double z, double radius, int material_typ
 	world.add(make_shared<sphere>(center, radius, mat));
 }
 
-void rt_set_camera(double lookfrom_x, double lookfrom_y, double lookfrom_z,
+API void rt_set_camera(double lookfrom_x, double lookfrom_y, double lookfrom_z,
 				   double lookat_x, double lookat_y, double lookat_z,
 				   double vup_x, double vup_y, double vup_z,
 				   double vfov, int samples_per_pixel, int max_depth,
@@ -45,7 +45,7 @@ void rt_set_camera(double lookfrom_x, double lookfrom_y, double lookfrom_z,
 	cam_set = true;
 }
 
-void rt_render(unsigned char* buffer, int width, int height, ProgressCallback callback) {
+API void rt_render(unsigned char* buffer, int width, int height, ProgressCallback callback) {
 	if (!cam_set) {
 		cam.samples_per_pixel = 10;
 		cam.max_depth = 20;
@@ -57,4 +57,22 @@ void rt_render(unsigned char* buffer, int width, int height, ProgressCallback ca
 		cam.focus_dist = 10;
 	}
 	cam.render_to_buffer(world, buffer, width, height, callback);
+}
+
+API void rt_add_lambertian_sphere(double x, double y, double z, double radius, double r, double g, double b)
+{
+	auto mat = make_shared<lambertian>(color(r, g, b));
+	world.add(make_shared<sphere>(point3(x, y, z), radius, mat));
+}
+
+API void rt_add_metal_sphere(double x, double y, double z, double radius, double r, double g, double b, double fuzz)
+{
+	auto mat = make_shared<metal>(color(r, g, b), fuzz);
+	world.add(make_shared<sphere>(point3(x, y, z), radius, mat));
+}
+
+API void rt_add_dielectric_sphere(double x, double y, double z, double radius, double refraction_index)
+{
+	auto mat = make_shared<dielectric>(refraction_index);
+	world.add(make_shared<sphere>(point3(x, y, z), radius, mat));
 }

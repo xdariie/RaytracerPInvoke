@@ -19,6 +19,9 @@ extern "C" {
                     double vfov, int samples_per_pixel, int max_depth,
 		            double defocus_angle, double focus_dist);
     API void rt_render(unsigned char* buffer, int width, int height, ProgressCallback callback);
+    API void rt_add_lambertian_sphere(double x, double y, double z, double radius, double r, double g, double b);
+    API void rt_add_metal_sphere(double x, double y, double z, double radius, double r, double g, double b, double fuzz);
+    API void rt_add_dielectric_sphere(double x, double y, double z, double radius, double refraction_index);
 
 #ifdef __cplusplus
 }
